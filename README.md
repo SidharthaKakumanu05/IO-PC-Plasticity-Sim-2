@@ -1,0 +1,1 @@
+this is a new toy sim where the 1 Hz IO neuron oscillation frequency is forced, in attempt to study resulting behavior to see if that could show why 1 Hz is the emergent property.
