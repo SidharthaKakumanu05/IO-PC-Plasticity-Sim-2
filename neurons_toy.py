@@ -12,6 +12,7 @@ class IONeuronToy:
 
     def run(self, T=10.0):
         time = np.arange(0, T, self.dt)
+        # Threshold sine wave to generate spikes
         self.spikes = time[np.sin(2*np.pi*self.freq*time + self.phase) > 0.99]
         return self.spikes
 
@@ -26,19 +27,28 @@ class PurkinjeCellToy:
         self.spikes = []
 
     def apply_plasticity(self, pf_spike, cf_spikes,
-                         ltd_window=0.1, null_window=0.2,
-                         eta_ltd=0.01, eta_ltp=0.005):
+                         ltd_window=0.1, null_window=0.5,
+                         eta_ltd=0.01, eta_ltp=0.002):
+        """Apply LTD/LTP/null rules based on PF–CF timing."""
         if len(cf_spikes) == 0:
+            # Record weight even if nothing happens
+            self.history.append(self.w)
             return
+
         delta_t = min([abs(pf_spike - cf) for cf in cf_spikes])
+
         if delta_t <= ltd_window:
+            # LTD event
             self.w -= eta_ltd * self.w
         elif delta_t > null_window:
+            # LTP event
             self.w += eta_ltp * (1 - self.w)
+
         self.w = np.clip(self.w, 0.0, 1.0)
         self.history.append(self.w)
 
     def receive_input(self, pf_spikes, cf_spikes, threshold=0.7):
+        """PC spikes if PF and CF coincide and weight is strong."""
         for pf in pf_spikes:
             if np.any(abs(cf_spikes - pf) < 0.05):
                 if self.w > threshold:
