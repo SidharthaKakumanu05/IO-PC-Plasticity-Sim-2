@@ -1,18 +1,18 @@
 import numpy as np
 
 # -----------------------------
-# Toy IO Neuron (forced oscillator)
+# Toy IO Neuron (forced oscillator with phase offset)
 # -----------------------------
 class IONeuronToy:
-    def __init__(self, freq=1.0, dt=1e-3):
+    def __init__(self, freq=1.0, dt=1e-3, phase=0.0):
         self.freq = freq   # in Hz
         self.dt = dt
+        self.phase = phase # phase offset
         self.spikes = []
 
     def run(self, T=10.0):
         time = np.arange(0, T, self.dt)
-        # Sine-wave oscillator → spike whenever sine crosses threshold
-        self.spikes = time[np.sin(2*np.pi*self.freq*time) > 0.99]
+        self.spikes = time[np.sin(2*np.pi*self.freq*time + self.phase) > 0.99]
         return self.spikes
 
 
@@ -39,7 +39,6 @@ class PurkinjeCellToy:
         self.history.append(self.w)
 
     def receive_input(self, pf_spikes, cf_spikes, threshold=0.7):
-        # Spike if PF + CF coincide and weight is strong enough
         for pf in pf_spikes:
             if np.any(abs(cf_spikes - pf) < 0.05):
                 if self.w > threshold:
