@@ -31,7 +31,7 @@ class PCNeuron:
         # histories
         self.avg_history_times = []
         self.avg_history_vals  = []
-        self.indiv_histories   = [[] for _ in range(n_pfs)]  # per-PF trajectory (piecewise)
+        self.indiv_histories   = [[] for _ in range(n_pfs)]  # per-PF trajectory
         self.indiv_times       = [[] for _ in range(n_pfs)]
 
     def plasticity_event(self, pf_idx, pf_time, cf_spikes,
