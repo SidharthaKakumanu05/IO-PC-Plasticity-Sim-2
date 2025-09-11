@@ -1,53 +1,59 @@
-import matplotlib.pyplot as plt
+import os
 import numpy as np
+import matplotlib.pyplot as plt
 
-def plot_raster(io_spike_trains, pf_trains, pc_spike_trains, T, freq):
+def plot_raster(io_spikes, pf_trains, T, freq, save_dir=None):
     plt.figure(figsize=(12,8))
+    # IO (red) at rows 0..0 (just one IO train here)
+    plt.scatter(io_spikes, [0]*len(io_spikes), color="red", marker="s", s=25, label="IO (CF)")
 
-    # IOs (red, top block)
-    offset = 0
-    for i, spikes in enumerate(io_spike_trains):
-        plt.scatter(spikes, [offset+i]*len(spikes), color="red", marker="|", s=20)
-    offset += len(io_spike_trains)
-
-    # PFs (blue, middle block)
+    # PFs (blue) stacked from row 5 upward
+    offset = 5
     for i, spikes in enumerate(pf_trains):
-        plt.scatter(spikes, [offset+i]*len(spikes), color="blue", marker="|", s=20)
-    offset += len(pf_trains)
-
-    # PCs (green, bottom block)
-    for i, spikes in enumerate(pc_spike_trains):
-        plt.scatter(spikes, [offset+i]*len(spikes), color="green", marker="|", s=30)
+        if len(spikes):
+            plt.scatter(spikes, [offset+i]*len(spikes), color="blue", marker="|", s=15)
 
     plt.xlabel("Time (s)")
     plt.ylabel("Neuron Index (grouped by type)")
     plt.title(f"Raster Plot (IO freq={freq} Hz)")
+    plt.legend(loc="upper right")
     plt.tight_layout()
-    plt.show()
+
+    if save_dir:
+        os.makedirs(save_dir, exist_ok=True)
+        plt.savefig(f"{save_dir}/raster_{freq:.1f}Hz.png")
+        plt.close()
+    else:
+        plt.show()
 
 
-def plot_weights(all_weights):
-    plt.figure(figsize=(10,5))
+def plot_weights(pc, freq, save_dir=None):
+    # Average weight over PFs as a function of PF-event time
+    plt.figure(figsize=(9,4))
+    if len(pc.avg_history_times):
+        plt.plot(pc.avg_history_times, pc.avg_history_vals, color="purple")
+    plt.xlabel("Time (s) (PF event times)")
+    plt.ylabel("Average Synaptic Weight")
+    plt.title("Average PF→PC Weight Evolution")
+    plt.tight_layout()
+    if save_dir:
+        os.makedirs(save_dir, exist_ok=True)
+        plt.savefig(f"{save_dir}/weights_avg_{freq:.1f}Hz.png")
+        plt.close()
+    else:
+        plt.show()
 
-    # Individual PC weight traces
-    for w in all_weights:
-        if len(w) > 0:
-            plt.plot(w, alpha=0.6)
-
-    plt.xlabel("Update step")
+    # Individual PF trajectories (each only updates when that PF spikes)
+    plt.figure(figsize=(12,5))
+    for times, vals in zip(pc.indiv_times, pc.indiv_histories):
+        if len(times):
+            plt.plot(times, vals, alpha=0.5)
+    plt.xlabel("Time (s) (PF event times)")
     plt.ylabel("Synaptic Weight")
-    plt.title("PF→PC Weight Evolution (all PCs)")
+    plt.title("PF→PC Weight Evolution (each PF)")
     plt.tight_layout()
-    plt.show()
-
-    # Average trace
-    min_len = min(len(w) for w in all_weights if len(w) > 0)
-    if min_len > 0:
-        avg_trace = np.mean([w[:min_len] for w in all_weights if len(w) > 0], axis=0)
-        plt.figure(figsize=(7,4))
-        plt.plot(avg_trace, color="purple")
-        plt.xlabel("Update step")
-        plt.ylabel("Average Synaptic Weight")
-        plt.title("Average PF→PC Weight Evolution")
-        plt.tight_layout()
+    if save_dir:
+        plt.savefig(f"{save_dir}/weights_individual_{freq:.1f}Hz.png")
+        plt.close()
+    else:
         plt.show()

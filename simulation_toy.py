@@ -1,56 +1,36 @@
 import numpy as np
-from neurons_toy import IONeuronToy, PurkinjeCellToy
+from neurons_toy import IONeuron, PFNeuron, PCNeuron
 
-# -----------------------------
-# PF input (Poisson process)
-# -----------------------------
-def generate_pf_spikes(rate=1.0, T=10.0, dt=1e-3, n_pf=50):
-    """Generate independent Poisson spike trains for n_pf parallel fibers."""
-    time = np.arange(0, T, dt)
-    pf_trains = []
-    for _ in range(n_pf):
-        spikes = time[np.random.rand(len(time)) < rate*dt]
-        pf_trains.append(spikes)
-    return pf_trains
+def run_simulation(io_freq=1.0, n_pfs=50, T=10.0, dt=0.001,
+                   pf_rate=1.0, init_w=0.5,
+                   eta_ltd=0.009, eta_ltp=0.001, ltd_window=0.05):
+    """
+    Simulate once; apply plasticity exactly once per PF spike in time order.
+    Returns:
+      io_spikes, pf_spike_trains(list of arrays),
+      pc (with histories filled)
+    """
+    # build neurons
+    io = IONeuron(freq=io_freq)
+    pfs = [PFNeuron(rate=pf_rate) for _ in range(n_pfs)]
+    pc  = PCNeuron(n_pfs=n_pfs, init_weight=init_w)
 
+    # generate spikes
+    io_spikes = io.generate_spikes(T, dt)
+    pf_trains = [pf.generate_spikes(T, dt) for pf in pfs]
 
-# -----------------------------
-# Run sparse toy IO–PF–PC network
-# -----------------------------
-def run_toy_network(freq=1.0, pf_rate=1.0, T=10.0, dt=1e-3,
-                    n_io=20, n_pf=50, n_pc=10, pf_per_pc_range=(5,15)):
-    time = np.arange(0, T, dt)
+    # merge ALL PF events into a single chronological stream of (time, pf_idx)
+    events = []
+    for idx, train in enumerate(pf_trains):
+        if len(train):
+            events.extend([(float(t), idx) for t in train])
+    events.sort(key=lambda x: x[0])
 
-    # IO neurons
-    io_neurons = [IONeuronToy(freq=freq, dt=dt, phase=np.random.rand()*2*np.pi)
-                  for _ in range(n_io)]
-    io_spike_trains = [io.run(T=T) for io in io_neurons]
+    # walk events in time; update exactly once per PF spike
+    for t_pf, idx in events:
+        pc.plasticity_event(idx, t_pf, io_spikes,
+                            eta_ltp=eta_ltp, eta_ltd=eta_ltd, ltd_window=ltd_window)
+        # after each PF update, record the current average weight
+        pc.record_avg(t_pf)
 
-    # PF neurons
-    pf_trains = generate_pf_spikes(rate=pf_rate, T=T, dt=dt, n_pf=n_pf)
-
-    # PC neurons
-    pcs = []
-    pc_spike_trains = []
-    all_weights = []
-
-    for _ in range(n_pc):
-        pc = PurkinjeCellToy()
-        # Random PF subset size
-        n_conn = np.random.randint(pf_per_pc_range[0], pf_per_pc_range[1]+1)
-        pf_indices = np.random.choice(range(n_pf), n_conn, replace=False)
-
-        # Apply plasticity for chosen PFs
-        for idx in pf_indices:
-            for pf in pf_trains[idx]:
-                pc.apply_plasticity(pf, np.concatenate(io_spike_trains))
-
-        # Generate PC spikes
-        for idx in pf_indices:
-            pc.receive_input(pf_trains[idx], np.concatenate(io_spike_trains))
-
-        pcs.append(pc)
-        pc_spike_trains.append(pc.spikes)
-        all_weights.append(pc.history)
-
-    return time, io_spike_trains, pf_trains, pc_spike_trains, all_weights
+    return io_spikes, pf_trains, pc

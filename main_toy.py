@@ -1,12 +1,21 @@
-from simulation_toy import run_toy_network
+from simulation_toy import run_simulation
 from visualize_toy import plot_raster, plot_weights
 
-if __name__ == "__main__":
-    # Run network at different IO frequencies
-    for freq in [0.5, 1.0, 2.0]:
-        time, io_spike_trains, pf_trains, pc_spike_trains, all_weights = run_toy_network(
-            freq=freq, pf_rate=1.0, T=10.0,
-            n_io=20, n_pf=50, n_pc=10, pf_per_pc_range=(5,15)
+def main():
+    T = 10.0
+    dt = 0.001
+    n_pfs = 50
+    pf_rate = 1.0
+
+    for f in [0.5, 1.0, 2.0]:
+        io_spikes, pf_trains, pc = run_simulation(
+            io_freq=f, n_pfs=n_pfs, T=T, dt=dt,
+            pf_rate=pf_rate,
+            eta_ltd=0.009, eta_ltp=0.001,  # 9:1 ratio
+            ltd_window=0.05                # 50 ms LTD window
         )
-        plot_raster(io_spike_trains, pf_trains, pc_spike_trains, T=10.0, freq=freq)
-        plot_weights(all_weights)
+        plot_raster(io_spikes, pf_trains, T, f, save_dir="output")
+        plot_weights(pc, f, save_dir="output")
+
+if __name__ == "__main__":
+    main()
